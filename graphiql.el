@@ -1,5 +1,22 @@
 ;;; graphiql.el --- GraphQL development environment  -*- lexical-binding: t; -*-
 
+
+;; Author: Reed Mullanix <reedmullanix@gmail.com>
+;; Keywords: graphql
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;;; Commentary:
 
 ;; This is a tool for testing and exploring graphql APIs.
@@ -27,6 +44,107 @@
   :type 'list
   :group 'graphiql)
 
+(defconst graphiql-introspection-query
+  "query IntrospectionQuery {
+  __schema {
+    queryType {
+      name
+    }
+    mutationType {
+      name
+    }
+    subscriptionType {
+      name
+    }
+    types {
+      ...FullType
+    }
+    directives {
+      name
+      description
+      locations
+      args {
+        ...InputValue
+      }
+    }
+  }
+}
+
+fragment FullType on __Type {
+  kind
+  name
+  description
+  fields(includeDeprecated: true) {
+    name
+    description
+    args {
+      ...InputValue
+    }
+    type {
+      ...TypeRef
+    }
+    isDeprecated
+    deprecationReason
+  }
+  inputFields {
+    ...InputValue
+  }
+  interfaces {
+    ...TypeRef
+  }
+  enumValues(includeDeprecated: true) {
+    name
+    description
+    isDeprecated
+    deprecationReason
+  }
+  possibleTypes {
+    ...TypeRef
+  }
+}
+
+fragment InputValue on __InputValue {
+  name
+  description
+  type {
+    ...TypeRef
+  }
+  defaultValue
+}
+
+fragment TypeRef on __Type {
+  kind
+  name
+  ofType {
+    kind
+    name
+    ofType {
+      kind
+      name
+      ofType {
+        kind
+        name
+        ofType {
+          kind
+          name
+          ofType {
+            kind
+            name
+            ofType {
+              kind
+              name
+              ofType {
+                kind
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} "
+  "Introspection query used to download the schema.")
 
 (defun json-path (json path)
   "Index into JSON by following PATH.
@@ -50,6 +168,18 @@ See https://github.com/kamilkisiela/graphql-config for more information on the c
   (interactive)
   (find-file (graphiql-locate-config ".")))
 
+(defun graphiql-next-query ()
+  "Move the point to the next query."
+  (interactive)
+  (end-of-line)
+  (re-search-forward "^query\\|^mutation\\|^subscription" nil t))
+
+(defun graphiql-previous-query ()
+  "Move the point to the previous query."
+  (interactive)
+  (beginning-of-line)
+  (re-search-backward "^query\\|^mutation\\|^subscription" nil t))
+
 (defun graphiql--completing-read-endpoint (endpoints)
   "Select an endpoint configuration from a list of ENDPOINTS."
   (completing-read "Select Graphql Endpoint:" (mapcar 'car endpoints)))
@@ -57,14 +187,28 @@ See https://github.com/kamilkisiela/graphql-config for more information on the c
 (defun graphiql-select-endpoint ()
   "Set parameters based off of the endpoints listed in a .graphqlconfig file."
   (interactive)
-  (if-let* (
-            (json-key-type 'string)
+  (if-let* ((json-key-type 'string)
             (config (json-read-file (graphiql-locate-config ".")))
             (endpoints (json-path config '("extensions" "endpoints")))
             (selection (graphiql--completing-read-endpoint endpoints)))
       (setq graphiql-url (json-path endpoints (list selection "url"))
             graphiql-extra-headers (json-path endpoints (list selection "headers")))
     (error "No endpoint configuration in .graphqlconfig")))
+
+(defun graphiql-download-schema ()
+  "Download the schema to the location specified by the .graphqlconfig file."
+  (interactive)
+  (if-let* ((config-file (graphiql-locate-config "."))
+            (config (json-read-file config-file))
+            (schema-location (json-path config '(schemaPath)))
+            (schema-file (expand-file-name schema-location (file-name-directory config-file))))
+      (graphiql-request graphiql-introspection-query
+                        :operation "IntrospectionQuery"
+                        :on-error 'print
+                        :on-success (lambda (response)
+                                      (write-region (json-encode response) nil schema-file)))
+    (error "Could not do the thing :(")
+    ))
 
 (defun graphiql-encode-query (query &optional operation variables)
   "Encodes QUERY, OPERATION, and VARIABLES into a json object."
@@ -89,11 +233,12 @@ and will be passed the errors from `url-retrieve'."
         (url-request-method "POST"))
     (url-retrieve graphiql-url
                   (lambda (status)
-                    (let ((error (plist-get status :error)))
+                    (let ((error (plist-get status :error))) ;; TODO: Better error handling
                       (if error
                           (funcall on-error error)
                         (goto-char url-http-end-of-headers)
-                        (funcall on-success (json-read))))))))
+                        (funcall on-success (json-read))
+                        ))))))
 
 (defun graphiql-current-operation ()
   "Return the name of the current definition."
@@ -133,25 +278,32 @@ and will be passed the errors from `url-retrieve'."
   (interactive)
   (let ((query (graphiql-resolve-imports))
         (operation (graphiql-current-operation))
-        (variables (graphiql-current-variables))
-        (json-encoding-pretty-print t))
+        (variables (graphiql-current-variables)))
     (graphiql-request query
                       :operation operation
                       :variables variables
-                      :on-error (lambda (errors) (print errors))
+                      :on-error (lambda (errors) (print errors)) ;; TODO Better error handling
                       :on-success (lambda (response)
                                     (with-current-buffer-window
                                         "*GraphiQL*" 'display-buffer-in-side-window nil
                                       (erase-buffer)
                                       (when (fboundp 'json-mode) (json-mode))
-                                      (insert (json-encode response)))
+                                      (let ((json-encoding-pretty-print t))
+                                        (insert (json-encode response))))
                                     (display-buffer-below-selected
                                      (with-current-buffer "*GraphiQL Variables*"
                                        (erase-buffer)
                                        (when (fboundp 'json-mode) (json-mode))
-                                       (insert (json-encode variables))
+                                       (if variables
+                                           (insert (json-encode variables))
+                                         (insert "{}"))
                                        (current-buffer))
                                      '((window-height . 10)))))))
+
+(defvar graphiql-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") 'graphiql-send-query)
+    (define-key map (kbd "C-c C-l") 'graphiql-select-endpoint)))
 
 (provide 'graphiql)
 ;;; graphiql.el ends here
