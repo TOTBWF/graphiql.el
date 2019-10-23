@@ -1,0 +1,11 @@
+
+{
+  "schemaPath": "schema.json",
+  "extensions": {
+    "endpoints": {
+      "github": {
+        "url": "https://api.github.com/graphql"
+      }
+    }
+  }
+}

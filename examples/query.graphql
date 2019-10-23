@@ -1,0 +1,17 @@
+query Repo($name : String!) {
+  viewer {
+    repository(name : $name) {
+      description
+      url
+      owner {
+        login
+      }
+    }
+  }
+}
+
+query Viewer {
+  viewer {
+    login
+  }
+}
