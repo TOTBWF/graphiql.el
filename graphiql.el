@@ -23,9 +23,11 @@
 
 ;;; Code:
 
+(require 'newcomment)
 (require 'url)
 (require 'cl-lib)
 (require 'json)
+
 
 (defgroup grapihql nil
   "An interactive GraphQL environment for emacs."
@@ -193,7 +195,7 @@ See https://github.com/kamilkisiela/graphql-config for more information on the c
             (selection (graphiql--completing-read-endpoint endpoints)))
       (setq graphiql-url (json-path endpoints (list selection "url"))
             graphiql-extra-headers (json-path endpoints (list selection "headers")))
-    (error "No endpoint configuration in .graphqlconfig")))
+    (error "Could not load .graphqlconfig")))
 
 (defun graphiql-download-schema ()
   "Download the schema to the location specified by the .graphqlconfig file."
@@ -207,8 +209,7 @@ See https://github.com/kamilkisiela/graphql-config for more information on the c
                         :on-error 'print
                         :on-success (lambda (response)
                                       (write-region (json-encode response) nil schema-file)))
-    (error "Could not do the thing :(")
-    ))
+    (error "Could not load .graphqlconfig")))
 
 (defun graphiql-encode-query (query &optional operation variables)
   "Encodes QUERY, OPERATION, and VARIABLES into a json object."
@@ -303,7 +304,20 @@ and will be passed the errors from `url-retrieve'."
 (defvar graphiql-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") 'graphiql-send-query)
-    (define-key map (kbd "C-c C-l") 'graphiql-select-endpoint)))
+    (define-key map (kbd "C-c C-l") 'graphiql-select-endpoint)
+    map)
+  "Key binding for GraphiQL.")
+
+;;;###autoload
+(define-derived-mode graphiql-mode prog-mode "GraphiQL"
+  "Turns on graphiql-mode."
+  (require 'graphiql-font)
+  ;; (require 'graphiql-indent)
+  (setq-local comment-start "# ")
+  (setq-local comment-start-skip "#+[\t ]*")
+  (setq-local font-lock-defaults '(graphiql-font-lock-keywords))
+  (setq-local indent-line-function 'graphiql-indent-line)
+  (add-hook 'post-self-insert-hook 'graphiql-bracket-post-self-insert-function))
 
 (provide 'graphiql)
 ;;; graphiql.el ends here
