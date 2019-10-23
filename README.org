@@ -1,0 +1,6 @@
+#+TITLE: README
+* graphiql.el
+This is a tool for exploring and testing GraphQL APIs.
+* Usage
+- ~C-c C-c~: Runs the query under the point
+- ~C-c C-l~: Loads a [[https://github.com/kamilkisiela/graphql-config][GraphQL config]] file, setting ~graphiql-url~ and ~graphiql-extra-headers~.
