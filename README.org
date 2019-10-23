@@ -5,5 +5,11 @@ This is a tool for exploring and testing GraphQL APIs.
 [[https://user-images.githubusercontent.com/8121224/67360213-3180f300-f51a-11e9-84d2-c94585826e55.png]]
 
 * Usage
+~graphiql-mode~ is a major mode that provides syntax highlighting, as well as
+some key bindings.
 - ~C-c C-c~: Runs the query under the point
 - ~C-c C-l~: Loads a [[https://github.com/kamilkisiela/graphql-config][GraphQL config]] file, setting ~graphiql-url~ and ~graphiql-extra-headers~.
+* Related Packages
+- https://github.com/davazp/graphql-mode. ~graphiql.el~ originally started it's
+  life out as a fork of ~graphql-mode~, but diverged to the point that it made
+  sense to do a full rewrite.

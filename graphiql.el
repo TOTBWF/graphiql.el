@@ -46,6 +46,12 @@
   :type 'list
   :group 'graphiql)
 
+(defcustom graphiql-use-lsp nil
+  "Use lsp-mode for autocompletion and validation."
+  :tag "GraphiQL"
+  :type 'boolean
+  :group 'graphiql)
+
 (defconst graphiql-introspection-query
   "query IntrospectionQuery {
   __schema {
@@ -317,7 +323,17 @@ and will be passed the errors from `url-retrieve'."
   (setq-local comment-start-skip "#+[\t ]*")
   (setq-local font-lock-defaults '(graphiql-font-lock-keywords))
   (setq-local indent-line-function 'graphiql-indent-line)
-  (add-hook 'post-self-insert-hook 'graphiql-bracket-post-self-insert-function))
+  (add-hook 'post-self-insert-hook 'graphiql-bracket-post-self-insert-function)
+  (when graphiql-use-lsp
+    (lsp-register-client
+     (make-lsp-client :new-connection (lsp-tcp-connection (lambda (port) `("graphql" "server" "-m" "socket" "-p" ,(number-to-string port))))
+                      :major-modes '(graphiql-mode)
+                      :initialization-options (lambda () `())
+                      :server-id 'graphql))
+    (add-to-list 'lsp-language-id-configuration '(graphiql-mode . "graphql"))))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.graphql\\'" . graphiql-mode))
 
 (provide 'graphiql)
 ;;; graphiql.el ends here
