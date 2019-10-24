@@ -188,6 +188,14 @@ See https://github.com/kamilkisiela/graphql-config for more information on the c
   (beginning-of-line)
   (re-search-backward "^query\\|^mutation\\|^subscription" nil t))
 
+(defun graphiql-print-path ()
+  "Print the JSON path to the JSON value under point,and save to kill ring."
+  (interactive)
+  (let* ((path (plist-get (json-path-to-position (point)) :path))
+         (interned-path (mapcar (lambda (item) (if (stringp item) (intern item) item)) path)))
+    (kill-new (format "%s" interned-path))
+    (print interned-path)))
+
 (defun graphiql--completing-read-endpoint (endpoints)
   "Select an endpoint configuration from a list of ENDPOINTS."
   (completing-read "Select Graphql Endpoint:" (mapcar 'car endpoints)))
@@ -264,6 +272,18 @@ and will be passed the errors from `url-retrieve'."
       (goto-char (point-min))
       (json-read))))
 
+(defun graphiql-current-binders ()
+  "Get the variable binders for the current query."
+  (let ((next-query-pos (save-excursion (graphiql-next-query)))
+        binders)
+    (save-excursion
+      (while (re-search-forward "#[[:space:]]*\\$\\([[:alpha:]]*\\)[[:space:]]*:[[:space:]]*\\(.*\\)" next-query-pos t)
+        (push (cons (intern (match-string-no-properties 1))
+                    (car (read-from-string (match-string-no-properties 2))))
+              binders)))
+    binders))
+
+
 (defun graphiql-resolve-imports ()
   "Return the current buffer as a string with all import statements resolved."
   (let ((buffer (current-buffer))
@@ -285,6 +305,7 @@ and will be passed the errors from `url-retrieve'."
   (interactive)
   (let ((query (graphiql-resolve-imports))
         (operation (graphiql-current-operation))
+        (binders (graphiql-current-binders))
         (variables (graphiql-current-variables)))
     (graphiql-request query
                       :operation operation
@@ -296,7 +317,11 @@ and will be passed the errors from `url-retrieve'."
                                       (erase-buffer)
                                       (when (fboundp 'json-mode) (json-mode))
                                       (let ((json-encoding-pretty-print t))
-                                        (insert (json-encode response))))
+                                        (insert (json-encode response)))
+                                      ;; Bind all of the variables
+                                      (cl-loop for (var . path) in binders do
+                                               (setf (alist-get var variables)
+                                                     (json-path response path))))
                                     (display-buffer-below-selected
                                      (with-current-buffer "*GraphiQL Variables*"
                                        (erase-buffer)
@@ -332,13 +357,14 @@ and will be passed the errors from `url-retrieve'."
   (setq-local comment-start-skip "#+[\t ]*")
   (setq-local font-lock-defaults '(graphiql-font-lock-keywords))
   (setq-local indent-line-function 'graphiql-indent-line)
-  (add-hook 'post-self-insert-hook 'graphiql-bracket-post-self-insert-function)
+  (add-hook 'post-self-insert-hook 'graphiql-bracket-post-self-insert-function nil t)
   (when graphiql-use-lsp
     (lsp-register-client
      (make-lsp-client :new-connection (lsp-tcp-connection (lambda (port) `("graphql" "server" "-m" "socket" "-p" ,(number-to-string port))))
                       :major-modes '(graphiql-mode)
                       :initialization-options (lambda () `())
                       :server-id 'graphql))
+
     (add-to-list 'lsp-language-id-configuration '(graphiql-mode . "graphql"))))
 
 ;;;###autoload
