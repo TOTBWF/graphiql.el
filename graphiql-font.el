@@ -44,7 +44,7 @@
      (2 font-lock-function-name-face))
 
     ;; Constants
-    (,(regexp-opt "true" "false" "null") . font-lock-constant-face)
+    (,(regexp-opt '("true" "false" "null")) . font-lock-constant-face)
 
     ;; Variables
     ("\\$\\_<.+?\\_>" . font-lock-variable-name-face)

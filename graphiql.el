@@ -292,7 +292,7 @@ and will be passed the errors from `url-retrieve'."
                       :on-error (lambda (errors) (print errors)) ;; TODO Better error handling
                       :on-success (lambda (response)
                                     (with-current-buffer-window
-                                        "*GraphiQL*" 'display-buffer-in-side-window nil
+                                        "*GraphiQL*" '(display-buffer-in-side-window (side . right)) nil
                                       (erase-buffer)
                                       (when (fboundp 'json-mode) (json-mode))
                                       (let ((json-encoding-pretty-print t))
@@ -302,7 +302,8 @@ and will be passed the errors from `url-retrieve'."
                                        (erase-buffer)
                                        (when (fboundp 'json-mode) (json-mode))
                                        (if variables
-                                           (insert (json-encode variables))
+                                           (let ((json-encoding-pretty-print t))
+                                             (insert (json-encode variables)))
                                          (insert "{}"))
                                        (current-buffer))
                                      '((window-height . 10)))))))
@@ -314,11 +315,19 @@ and will be passed the errors from `url-retrieve'."
     map)
   "Key binding for GraphiQL.")
 
+(defvar graphiql-mode-syntax-table
+  (let ((st (make-syntax-table)))
+    (modify-syntax-entry ?\# "<" st)
+    (modify-syntax-entry ?\n ">" st)
+    (modify-syntax-entry ?\$ "'" st)
+    st)
+  "Syntax table for GraphiQL.")
+
 ;;;###autoload
 (define-derived-mode graphiql-mode prog-mode "GraphiQL"
   "Turns on graphiql-mode."
   (require 'graphiql-font)
-  ;; (require 'graphiql-indent)
+  (require 'graphiql-indent)
   (setq-local comment-start "# ")
   (setq-local comment-start-skip "#+[\t ]*")
   (setq-local font-lock-defaults '(graphiql-font-lock-keywords))
