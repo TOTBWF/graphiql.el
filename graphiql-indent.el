@@ -31,7 +31,6 @@
       (let ((level (car (syntax-ppss (point-at-bol)))))
         (when (looking-at "[[:blank:]]*\\s)")
           (decf level))
-        (print level)
         (indent-line-to (* 2 level)) ;; TODO Make this configurable
         (setq indent-pos (point))))
     (when (< (point) indent-pos)
@@ -44,8 +43,7 @@
          (looking-at "\\s)"))
     (newline)
     (graphiql-indent-line)
-    (forward-line -1)
-    (graphiql-indent-line)))
+    (forward-line -1)))
 
 (provide 'graphiql-indent)
 ;;; graphiql-indent.el ends here

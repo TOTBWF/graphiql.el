@@ -28,13 +28,6 @@
             "[[:space:]]+\\(\\_<.+?\\_>\\)")
     "Definition Regular Expression.")
 
-(defvar graphiql-mode-syntax-table
-  (let ((st (make-syntax-table)))
-    (modify-syntax-entry ?\# "<" st)
-    (modify-syntax-entry ?\n ">" st)
-    (modify-syntax-entry ?\$ "'" st)
-    st)
-  "Syntax table for GraphiQL.")
 
 (defvar graphiql-font-lock-keywords
   `(

@@ -193,7 +193,7 @@ See https://github.com/kamilkisiela/graphql-config for more information on the c
   (interactive)
   (let* ((path (plist-get (json-path-to-position (point)) :path))
          (interned-path (mapcar (lambda (item) (if (stringp item) (intern item) item)) path)))
-    (kill-new (format "%s" interned-path))
+    (kill-new (format "(json-path response '%s)" interned-path))
     (print interned-path)))
 
 (defun graphiql--completing-read-endpoint (endpoints)
@@ -277,7 +277,7 @@ and will be passed the errors from `url-retrieve'."
   (let ((next-query-pos (save-excursion (graphiql-next-query)))
         binders)
     (save-excursion
-      (while (re-search-forward "#[[:space:]]*\\$\\([[:alpha:]]*\\)[[:space:]]*:[[:space:]]*\\(.*\\)" next-query-pos t)
+      (while (re-search-forward "#[[:space:]]*\\$\\([[:alnum:]]*\\)[[:space:]]*:[[:space:]]*\\(.*\\)" next-query-pos t)
         (push (cons (intern (match-string-no-properties 1))
                     (car (read-from-string (match-string-no-properties 2))))
               binders)))
@@ -319,9 +319,9 @@ and will be passed the errors from `url-retrieve'."
                                       (let ((json-encoding-pretty-print t))
                                         (insert (json-encode response)))
                                       ;; Bind all of the variables
-                                      (cl-loop for (var . path) in binders do
+                                      (cl-loop for (var . expr) in binders do
                                                (setf (alist-get var variables)
-                                                     (json-path response path))))
+						     (eval expr `((res . ,response))))))
                                     (display-buffer-below-selected
                                      (with-current-buffer "*GraphiQL Variables*"
                                        (erase-buffer)
