@@ -250,10 +250,9 @@ and will be passed the errors from `url-retrieve'."
                   (lambda (status)
                     (let ((error (plist-get status :error))) ;; TODO: Better error handling
                       (if error
-                          (funcall on-error error)
+                          (funcall on-error error (buffer-string))
                         (goto-char url-http-end-of-headers)
-                        (funcall on-success (json-read))
-                        ))))))
+                        (funcall on-success (json-read))))))))
 
 (defun graphiql-current-operation ()
   "Return the name of the current definition."
@@ -310,7 +309,7 @@ and will be passed the errors from `url-retrieve'."
     (graphiql-request query
                       :operation operation
                       :variables variables
-                      :on-error (lambda (errors) (print errors)) ;; TODO Better error handling
+                      :on-error (lambda (_ response) (print "%s" response)) ;; TODO Better error handling
                       :on-success (lambda (response)
                                     (with-current-buffer-window
                                         "*GraphiQL*" '(display-buffer-in-side-window (side . right)) nil
@@ -321,7 +320,7 @@ and will be passed the errors from `url-retrieve'."
                                       ;; Bind all of the variables
                                       (cl-loop for (var . expr) in binders do
                                                (setf (alist-get var variables)
-						     (eval expr `((res . ,response))))))
+                                                     (eval expr `((res . ,response))))))
                                     (display-buffer-below-selected
                                      (with-current-buffer "*GraphiQL Variables*"
                                        (erase-buffer)
