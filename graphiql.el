@@ -25,11 +25,12 @@
 
 (require 'newcomment)
 (require 'url)
+(require 'subr-x)
 (require 'cl-lib)
 (require 'json)
 
 
-(defgroup grapihql nil
+(defgroup graphiql nil
   "An interactive GraphQL environment for emacs."
   :tag "GraphiQL"
   :group 'tools)
@@ -38,7 +39,7 @@
   "URL address of the graphql server endpoint."
   :tag "GraphiQL"
   :type 'string
-  :group 'graphql)
+  :group 'graphiql)
 
 (defcustom graphiql-extra-headers '()
   "Headers to send to the graphql endpoint."
